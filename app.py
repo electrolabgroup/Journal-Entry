@@ -94,7 +94,7 @@ def push_data(data):
         # Log the file path and name
         print(f"Failed entries file saved as: {filepath}")
 
-        Thread(target=cleanup_temp_files, args=(filepath, 60)).start()
+        Thread(target=cleanup_temp_files, args=(filepath, 3600)).start()
 
     return messages, filename if failed_entries else ''
 
@@ -119,7 +119,7 @@ def upload_file():
         # Log the file save
         print(f"File saved to: {filepath}")
 
-        Thread(target=cleanup_temp_files, args=(filepath, 60)).start()
+        Thread(target=cleanup_temp_files, args=(filepath, 3600)).start()
 
         try:
             if file.filename.endswith('.csv'):
