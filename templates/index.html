@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journal Entry</title>
+   
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script> <!-- Include Socket.IO library -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            /* background-color: #f4f4f4; */
+            background-color: #008080;
+            color: #333;
+        }
+   
+
+        h2 {
+            color: #555;
+        }
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        .form-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .form-group input[type="file"],
+        .form-group input[type="submit"],
+        .form-group .button,
+        .form-group .button2 {
+            margin-right: 10px;
+        }
+        input[type="submit"],
+        .button,
+        .button2 {
+            background-color: #116af0;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 4px;
+            text-align: center;
+            text-decoration: none;
+        }
+        input[type="submit"]:hover,
+        .button:hover,
+        .button2:hover {
+            background-color: #000000;
+        }
+        .button {
+            background-color: #007bff; /* Adjust color as needed */
+        }
+        .button2 {
+            background-color: #28a745; /* Adjust color as needed */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #424141;
+            color: white;
+        }
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-failed {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .dialog-box {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 20px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }    #download-link a {
+            background-color: red;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 4px;
+            text-align: center;
+            text-decoration: none;
+        }
+
+        #download-link a:hover {
+            background-color: darkred;
+        }
+    </style>
+    <script>
+        // Initialize Socket.IO
+        const socket = io();
+
+        // Function to handle form submission asynchronously
+        function handleFileUpload(event) {
+            event.preventDefault();
+            const formData = new FormData(document.querySelector('form'));
+            const request = new XMLHttpRequest();
+            request.open('POST', '/upload', true);
+
+            request.onload = function() {
+                const response = JSON.parse(this.responseText);
+                if (response.status === 'success') {
+                    if (response.download_link) {
+                        document.getElementById('download-link').innerHTML = `<a href="${response.download_link}" class="button" download>Download Failed Entries</a>`;
+                    } else {
+                        document.getElementById('download-link').innerHTML = '';
+                    }
+                    document.getElementById('status-table').style.display = 'table';  // Show the table
+                } else {
+                    showDialog('Error', response.message);
+                }
+            };
+
+            request.onerror = function() {
+                showDialog('Error', 'An error occurred during the upload.');
+            };
+
+            request.send(formData);
+        }
+
+        // Function to display messages in a table
+        function displayMessages(messages) {
+            const tableBody = document.getElementById('status-table-body');
+            tableBody.innerHTML = '';  // Clear existing rows
+
+            messages.forEach(message => {
+                const row = document.createElement('tr');
+                const remarkCell = document.createElement('td');
+                const accountCell = document.createElement('td');
+                const statusCell = document.createElement('td');
+
+                remarkCell.innerText = message.remark;
+                accountCell.innerText = message.account;
+                statusCell.innerText = message.status;
+
+                // Apply status styles
+                if (message.status === 'Success') {
+                    statusCell.classList.add('status-success');
+                } else if (message.status === 'Failed') {
+                    statusCell.classList.add('status-failed');
+                }
+
+                row.appendChild(remarkCell);
+                row.appendChild(accountCell);
+                row.appendChild(statusCell);
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Function to show dialog box
+        function showDialog(title, message) {
+            const dialogBox = document.createElement('div');
+            dialogBox.className = 'dialog-box';
+
+            const dialogTitle = document.createElement('h3');
+            dialogTitle.innerText = title;
+
+            const dialogMessage = document.createElement('p');
+            dialogMessage.innerHTML = message;
+
+            const closeButton = document.createElement('button');
+            closeButton.innerText = 'Close';
+            closeButton.onclick = function() {
+                document.body.removeChild(dialogBox);
+            };
+
+            dialogBox.appendChild(dialogTitle);
+            dialogBox.appendChild(dialogMessage);
+            dialogBox.appendChild(closeButton);
+            document.body.appendChild(dialogBox);
+        }
+
+        // WebSocket event handler for real-time updates
+        socket.on('data_update', function(data) {
+            const tableBody = document.getElementById('status-table-body');
+            const row = document.createElement('tr');
+            const remarkCell = document.createElement('td');
+            const accountCell = document.createElement('td');
+            const statusCell = document.createElement('td');
+
+            remarkCell.innerText = data.remark;
+            accountCell.innerText = data.account;
+            statusCell.innerText = data.status;
+
+            // Apply status styles
+            if (data.status === 'Success') {
+                statusCell.classList.add('status-success');
+            } else if (data.status === 'Failed') {
+                statusCell.classList.add('status-failed');
+            }
+
+            row.appendChild(remarkCell);
+            row.appendChild(accountCell);
+            row.appendChild(statusCell);
+            tableBody.appendChild(row);
+
+            // Ensure the table is visible
+            document.getElementById('status-table').style.display = 'table';
+        });
+
+        // Attach event listener to the form submit button
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelector('form').addEventListener('submit', handleFileUpload);
+        });
+    </script>
+</head>
+<body>
+    <br>
+    <br>
+    <div class="container">
+        <h2>Update Journal Entry </h2>
+        <form method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <input type="file" name="file" />
+                <input type="submit" value="Upload File" />
+                <div id="download-link">
+                    <!-- Download link will be dynamically populated here -->
+                </div>
+                <br>
+                <div id="download-link2">
+                    <a href="/static/templates.xlsx" class="button button2" download>Download Sample Templates</a>
+                </div>
+            </div>
+        </form>
+
+        <table id="status-table" style="display:none;">
+            <thead>
+                <tr>
+                    <th>Remark</th>
+                    <th>Account</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="status-table-body">
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
